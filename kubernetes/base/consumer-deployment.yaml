@@ -16,7 +16,7 @@ spec:
       - name: consumer-container
         image: my-fastapi-consumer:latest  # Use a separate image for consumer
         imagePullPolicy: Never
-        env:
-        - name: ABC
-          value: "SOMETHING"
+        envFrom:
+          - secretRef:
+              name: fastapi-to-salesforce
         command: ["/app/entrypoint.sh"]  # Ensure the entrypoint script is executed
