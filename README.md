@@ -5,7 +5,8 @@
 4. Setup mulesoft Flexgateway on Mac (M1 ARM)
 
 
-```sequenceDiagram
+```mermaid
+sequenceDiagram
     actor User
     participant FastAPI
     participant Kafka
