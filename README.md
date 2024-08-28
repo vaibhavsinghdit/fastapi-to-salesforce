@@ -1,10 +1,47 @@
 # Table of content
-1. Development lifecycle
-2. Deployment lifecycle
-3. Debug deployment
-4. Setup mulesoft Flexgateway on Mac (M1 ARM)
+1. Message Flow
+2. Microservices Architecture: Salesforce Contact creation
+3. Deployment lifecycle
+4. Debug deployment
+5. Setup mulesoft Flexgateway on Mac (M1 ARM)
 
 
+## 1. Message Flow
+```mermaid
+graph LR
+    User((User))
+    subgraph Minikube_Kubernetes_Cluster["Minikube/Kubernetes Cluster"]
+        subgraph FlexGateway_Container["Mulesoft Flex Gateway"]
+            FlexGateway[Flex Gateway]
+        end
+        subgraph FastAPI_Container["FastAPI Container"]
+            FastAPI[FastAPI]
+        end
+        subgraph Consumer_Container["Consumer Container"]
+            PythonConsumer[Python Consumer]
+        end
+    end
+    subgraph Cloud
+        Kafka[Kafka]
+    end
+    Salesforce[(Salesforce)]
+
+    User -->|1. Send request| FlexGateway
+    FlexGateway -->|2. Pass request| FastAPI
+    FastAPI -->|3. Send message| Kafka
+    Kafka -->|4. Consume message| PythonConsumer
+    PythonConsumer -->|5. Update/Create contacts| Salesforce
+
+    style Minikube_Kubernetes_Cluster fill:#f0f0f0,stroke:#333,stroke-width:2px
+    style Cloud fill:#e6f3ff,stroke:#333,stroke-width:2px
+    style FlexGateway fill:#f7e8a9,stroke:#333,stroke-width:1px
+    style FastAPI fill:#d4edda,stroke:#333,stroke-width:1px
+    style PythonConsumer fill:#d4edda,stroke:#333,stroke-width:1px
+
+
+```
+
+## 2. Microservices Architecture: Salesforce Contact creation
 ```mermaid
 sequenceDiagram
     actor User
@@ -21,12 +58,15 @@ sequenceDiagram
     FastAPI-->>User: Send response
 ```
 
-# Deployment Lifecycle
+
+
+
+## 3. Deployment Lifecycle
 
 Step 1: Build the image locally
 
 ```bash
-docker build -t my-fastapi-app:latest .
+docker-compose up --build
 ```
 
 2. Start Minikube Docker Environment
@@ -53,87 +93,27 @@ eval $(minikube -p mq-minikube docker-env)
 ```
 
 
-Step 5: Re-Build the image in minikube docker demon
+5. Re-Build the image in minikube docker demon
 ```bash
-docker build -t my-fastapi-app:latest .
+docker-compose up --build
 
 docker  images
 ```
 
 6. Use the Image in Your Minikube Kubernetes Deployment
-   <br/> a) deployment.yaml
-   <br/> b) service.yaml
-
-```yaml
-# deployment.yaml
-apiVersion: apps/v1  # Specifies the API version used for the deployment
-kind: Deployment  # Defines the type of Kubernetes resource, in this case, a Deployment
-metadata:
-  name: my-fastapi-app-deployment  # The name of the Deployment resource a.k.a your build image name
-spec:
-  replicas: 1  # Number of pod replicas to run; in this case, only 1 pod will be running
-  selector:
-    matchLabels:
-      app: my-fastapi-app  # Label selector used to identify the pods that this Deployment will manage
-  template:
-    metadata:
-      labels:
-        app: my-fastapi-app  # Labels applied to the pods created by this Deployment
-    spec:
-      containers:
-      - name: my-fastapi-app  # Name of the container within the pod
-        image: my-fastapi-app:latest  # The Docker image to use for this container
-        imagePullPolicy: Never  # Ensures Kubernetes uses the locally built image without pulling from a registry
-        ports:
-        - containerPort: 8000  # The port that the container exposes internally
-        resources:
-          limits:
-            memory: "128Mi"  # Maximum memory the container can use
-            cpu: "200m"  # Maximum CPU the container can use (200 milliCPU)
-
-
-```
-
-```yaml
-# service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-fastapi-app-service
-spec:
-  type: NodePort  # Exposes the service on a specific port on each node
-  selector:
-    app: my-fastapi-app
-  ports:
-  - protocol: TCP
-    port: 80  # The port that will be exposed outside the cluster
-    targetPort: 8000  # The port your FastAPI app listens to inside the container
-    nodePort: 30007  # You can specify a port or let Kubernetes assign one (30000-32767)
-
-
-```
-
-```bash
-$ kubectl apply -f kubernetes/base/
-```
+   <br/> a) producer-deployment.yaml
+   <br/> b) producer-service.yaml
+   <br/> c) consumer-deployment.yaml
 
 7. Deploy to Minikube
 
 ```bash
-kubectl apply -f deployment.yaml
+$ kubectl apply -f kubernetes/base/
+
+$ kubectl apply -f kubernetes/local/
 ```
 
-```bash
-kubectl apply -f service.yaml
-```
-
-8. Verify the Pod is Running
-
-```bash
-kubectl get pods
-```
-
-9. Verify the Pod and service is Running
+8. Verify the Pod and service is Running
 
 ```bash
 kubectl get pods
@@ -142,17 +122,19 @@ kubectl get pods
 ```bash
 kubectl get services
 ```
-10. Start the application
+
+9. Start the application
     <br/> a) In console
     ```bash
-    minikube service my-fastapi-app-service
+    minikube service producer-service
     ```
     <br/> b) In detach mode inside console
 
     ```bash
-    minikube service my-fastapi-app-service --url &
+    minikube service producer-service --url &
     ```
-### 3. Debug Deployment
+
+### 4. Debug Deployment
 
 Here's the handful of command to debug the deployment on minikube
 
@@ -176,7 +158,7 @@ $ kubectl apply -f deployment.yaml
 $ kubectl apply -f service.yaml
 ```
 
-### 4. How to configure Mulesoft FlexGateway on Mac M1
+### 5. How to configure Mulesoft FlexGateway on Mac M1
 
 A. Cleanup Kubernetes Resources
 
@@ -241,48 +223,4 @@ kubectl get svc ingress -o yaml -n gateway
 
 ```bash
  minikube service ingress -n gateway
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-
-```bash
-1228  helm -n gateway uninstall ingress\n
- 1229  kubectl delete namespace gateway\n
- 1230  docker rmi mulesoft/flex-gateway:1.8.0-amd64\ndocker rmi mulesoft/flex-gateway:1.8.0\ndocker rmi mulesoft/flex-gateway:latest\n
- 1231  docker rmi -f mulesoft/flex-gateway:1.8.0-amd64\ndocker rmi -f mulesoft/flex-gateway:1.8.0\ndocker rmi -f mulesoft/flex-gateway:latest\n
- 1232  minikube stop
- 1233  minikube start
- 1234  docker images
- 1235  eval $(minikube -p mq-minikube docker-env)\n
- 1236  docker images
- 1237  docker pull --platform linux/amd64 mulesoft/flex-gateway:1.8.0
- 1238  docker tag mulesoft/flex-gateway:1.8.0 mulesoft/flex-gateway:1.8.0-amd64
- 1239  docker images
- 1240  helm repo add flex-gateway https://flex-packages.anypoint.mulesoft.com/helm
- 1241  helm -n gateway upgrade -i --create-namespace --wait ingress flex-gateway/flex-gateway \\n  --set-file registration.content=registration.yaml \\n  --set gateway.mode=connected \\n  --set image.repository=mulesoft/flex-gateway \\n  --set image.tag=1.8.0-amd64\n
-(.venv) (base) mq10006848@ITS-FVFL21EX1WG7 gateway-kube-mini-test2 % 
-
 ```
