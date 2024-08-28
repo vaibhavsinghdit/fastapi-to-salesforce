@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer-app
+  template:
+    metadata:
+      labels:
+        app: producer-app
+    spec:
+      containers:
+      - name: producer-container
+        image: my-fastapi-producer:latest  # Use a separate image for producer
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000  # FastAPI port

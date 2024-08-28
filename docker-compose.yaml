@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    image: my-fastapi-producer:latest
+    ports:
+      - "8000:8000"  # Expose FastAPI port
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+    image: my-fastapi-consumer:latest
+    entrypoint: ["/app/entrypoint.sh"]  # Use the entrypoint script

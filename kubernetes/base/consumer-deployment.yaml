@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer-app
+  template:
+    metadata:
+      labels:
+        app: consumer-app
+    spec:
+      containers:
+      - name: consumer-container
+        image: my-fastapi-consumer:latest  # Use a separate image for consumer
+        imagePullPolicy: Never
+        env:
+        - name: ABC
+          value: "SOMETHING"
+        command: ["/app/entrypoint.sh"]  # Ensure the entrypoint script is executed
