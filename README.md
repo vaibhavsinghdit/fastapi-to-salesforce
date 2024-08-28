@@ -1,12 +1,16 @@
-# Table of content
+# Salesforce Contact lifeccycle
+
+## Table of content
 1. Message Flow
 2. Microservices Architecture: Salesforce Contact creation
-3. Deployment lifecycle
-4. Debug deployment
-5. Setup mulesoft Flexgateway on Mac (M1 ARM)
+3. Design Decision
+4. Deployment lifecycle
+5. Debug deployment
+6. Setup mulesoft Flexgateway on Mac (M1 ARM)
 
 
-## 1. Message Flow
+
+### 1. Message Flow
 ```mermaid
 graph LR
     User((User))
@@ -41,7 +45,7 @@ graph LR
 
 ```
 
-## 2. Microservices Architecture: Salesforce Contact creation
+### 2. Microservices Architecture: Salesforce Contact creation
 ```mermaid
 sequenceDiagram
     actor User
@@ -58,10 +62,31 @@ sequenceDiagram
     FastAPI-->>User: Send response
 ```
 
+----
+### 3. Design Decisions
+
+### 1. **Microservices Architecture Choice**
+   - **Flexibility and Scalability**: The microservices architecture was chosen for its ability to scale individual components independently. We ensure that the system can handle varying loads efficiently without overprovisioning resources.
+   - **Technology Independence**: This architecture allows the use of different technologies tailored to specific tasks. FastAPI is used for handling HTTP requests due to its lightweight and asynchronous nature, Kafka for message brokering because of its reliability and scalability, and Python for processing due to its rich ecosystem and ease of integration.
+   - **Resilience and Fault Isolation**: Decoupling services in a microservices architecture ensures that a failure in one service (e.g., the Kafka consumer) does not cascade and cause system-wide outages. This isolation enhances the resilience of the system.
+
+### 2. **Containerization with Docker and Kubernetes**
+   - **Consistency Across Environments**: Docker ensures that the application behaves consistently across development, testing, and production environments. This consistency minimizes environment-specific bugs and makes the deployment process more predictable.
+   - **Kubernetes for Orchestration**: Kubernetes (Minikube) was chosen to manage the containerized applications, allowing for automated deployment, and management. Minikube is used for local development, which mirrors the production environment, enabling realistic testing of deployments and configurations.
+   - **Automated Deployment**: Kubernetes manifests (e.g., `deployment.yaml`, `service.yaml`) ensure a consistent and repeatable deployment process, reducing the risk of human error and allowing for seamless scaling and updates.
+
+### 3. **Message Queue with Kafka (Cloud)**
+   - **Asynchronous Processing**: Kafka, hosted in the cloud, allows for asynchronous processing between the producer (FastAPI) and the consumer (Python) services. This setup enhances system performance by decoupling the two services, enabling FastAPI to quickly offload tasks to Kafka and handle more requests concurrently.
+   - **Durability and Reliability**: Kafka’s message durability ensures that messages are reliably stored and can be replayed if necessary, providing fault tolerance and ensuring data integrity even if the consumer service experiences downtime.
+
+### 4. **Use of Mulesoft Flex Gateway**
+   - **Centralized API Management**: Mulesoft Flex Gateway serves as a unified control plane for managing and securing APIs across different environments. Placing Flex Gateway before FastAPI provides centralized control over API traffic, allowing for better visibility and management.
+   - **Security and Traffic Management**: By using Flex Gateway, security policies (e.g., authentication) and traffic management strategies (e.g., load balancing) can be applied at the gateway level, protecting the backend services and ensuring stable and secure operations.
+
+----
 
 
-
-## 3. Deployment Lifecycle
+## 4. Deployment Lifecycle
 
 Step 1: Build the image locally
 
@@ -134,7 +159,7 @@ kubectl get services
     minikube service producer-service --url &
     ```
 
-### 4. Debug Deployment
+### 5. Debug Deployment
 
 Here's the handful of command to debug the deployment on minikube
 
@@ -158,7 +183,7 @@ $ kubectl apply -f deployment.yaml
 $ kubectl apply -f service.yaml
 ```
 
-### 5. How to configure Mulesoft FlexGateway on Mac M1
+### 6. How to configure Mulesoft FlexGateway on Mac M1
 
 A. Cleanup Kubernetes Resources
 
