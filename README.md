@@ -1,15 +1,95 @@
-# Table of content
-1. Development lifecycle
-2. Deployment lifecycle
-3. Debug deployment
-4. Setup mulesoft Flexgateway on Mac (M1 ARM)
+# Salesforce Contact lifecycle
 
-# Deployment Lifecycle
+## Table of content
+1. Message Flow
+2. Microservices Architecture: Salesforce Contact creation
+3. Design Decision
+4. Deployment lifecycle
+5. Debug deployment
+6. Setup mulesoft Flexgateway on Mac (M1 ARM)
+
+
+
+### 1. Message Flow
+```mermaid
+sequenceDiagram
+    actor User
+    participant FastAPI
+    participant Kafka
+    participant PythonConsumer
+    participant Salesforce
+
+    User->>FastAPI: Send request
+    FastAPI->>Kafka: Send message
+    Kafka->>PythonConsumer: Consume message
+    PythonConsumer->>Salesforce: Update or create contacts
+    Salesforce-->>PythonConsumer: Confirm action
+    FastAPI-->>User: Send response
+```
+
+### 2. Microservices Architecture: Salesforce Contact creation
+```mermaid
+graph LR
+    User((User))
+    subgraph Minikube_Kubernetes_Cluster["Minikube/Kubernetes Cluster"]
+        subgraph FlexGateway_Container["Mulesoft Flex Gateway"]
+            FlexGateway[Flex Gateway]
+        end
+        subgraph FastAPI_Container["FastAPI Container"]
+            FastAPI[FastAPI]
+        end
+        subgraph Consumer_Container["Consumer Container"]
+            PythonConsumer[Python Consumer]
+        end
+    end
+    subgraph Cloud
+        Kafka[Kafka]
+    end
+    Salesforce[(Salesforce)]
+
+    User -->|1. Send request| FlexGateway
+    FlexGateway -->|2. Pass request| FastAPI
+    FastAPI -->|3. Send message| Kafka
+    Kafka -->|4. Consume message| PythonConsumer
+    PythonConsumer -->|5. Update/Create contacts| Salesforce
+
+    style Minikube_Kubernetes_Cluster fill:#f0f0f0,stroke:#333,stroke-width:2px
+    style Cloud fill:#e6f3ff,stroke:#333,stroke-width:2px
+    style FlexGateway fill:#f7e8a9,stroke:#333,stroke-width:1px
+    style FastAPI fill:#d4edda,stroke:#333,stroke-width:1px
+    style PythonConsumer fill:#d4edda,stroke:#333,stroke-width:1px
+```
+
+----
+### 3. Design Decisions
+
+### 1. **Microservices Architecture Choice**
+   - **Flexibility and Scalability**: The microservices architecture was chosen for its ability to scale individual components independently. We ensure that the system can handle varying loads efficiently without overprovisioning resources.
+   - **Technology Independence**: This architecture allows the use of different technologies tailored to specific tasks. FastAPI is used for handling HTTP requests due to its lightweight and asynchronous nature, Kafka for message brokering because of its reliability and scalability, and Python for processing due to its rich ecosystem and ease of integration.
+   - **Resilience and Fault Isolation**: Decoupling services in a microservices architecture ensures that a failure in one service (e.g., the Kafka consumer) does not cascade and cause system-wide outages. This isolation enhances the resilience of the system.
+
+### 2. **Containerization with Docker and Kubernetes**
+   - **Consistency Across Environments**: Docker ensures that the application behaves consistently across development, testing, and production environments. This consistency minimizes environment-specific bugs and makes the deployment process more predictable.
+   - **Kubernetes for Orchestration**: Kubernetes (Minikube) was chosen to manage the containerized applications, allowing for automated deployment, and management. Minikube is used for local development, which mirrors the production environment, enabling realistic testing of deployments and configurations.
+   - **Automated Deployment**: Kubernetes manifests (e.g., `deployment.yaml`, `service.yaml`) ensure a consistent and repeatable deployment process, reducing the risk of human error and allowing for seamless scaling and updates.
+
+### 3. **Message Queue with Kafka (Cloud)**
+   - **Asynchronous Processing**: Kafka, hosted in the cloud, allows for asynchronous processing between the producer (FastAPI) and the consumer (Python) services. This setup enhances system performance by decoupling the two services, enabling FastAPI to quickly offload tasks to Kafka and handle more requests concurrently.
+   - **Durability and Reliability**: Kafka’s message durability ensures that messages are reliably stored and can be replayed if necessary, providing fault tolerance and ensuring data integrity even if the consumer service experiences downtime.
+
+### 4. **Use of Mulesoft Flex Gateway**
+   - **Centralized API Management**: Mulesoft Flex Gateway serves as a unified control plane for managing and securing APIs across different environments. Placing Flex Gateway before FastAPI provides centralized control over API traffic, allowing for better visibility and management.
+   - **Security and Traffic Management**: By using Flex Gateway, security policies (e.g., authentication) and traffic management strategies (e.g., load balancing) can be applied at the gateway level, protecting the backend services and ensuring stable and secure operations.
+
+----
+
+
+## 4. Deployment Lifecycle
 
 Step 1: Build the image locally
 
 ```bash
-docker build -t my-fastapi-app:latest .
+docker-compose up --build
 ```
 
 2. Start Minikube Docker Environment
@@ -36,87 +116,27 @@ eval $(minikube -p mq-minikube docker-env)
 ```
 
 
-Step 5: Re-Build the image in minikube docker demon
+5. Re-Build the image in minikube docker demon
 ```bash
-docker build -t my-fastapi-app:latest .
+docker-compose up --build
 
 docker  images
 ```
 
 6. Use the Image in Your Minikube Kubernetes Deployment
-   <br/> a) deployment.yaml
-   <br/> b) service.yaml
-
-```yaml
-# deployment.yaml
-apiVersion: apps/v1  # Specifies the API version used for the deployment
-kind: Deployment  # Defines the type of Kubernetes resource, in this case, a Deployment
-metadata:
-  name: my-fastapi-app-deployment  # The name of the Deployment resource a.k.a your build image name
-spec:
-  replicas: 1  # Number of pod replicas to run; in this case, only 1 pod will be running
-  selector:
-    matchLabels:
-      app: my-fastapi-app  # Label selector used to identify the pods that this Deployment will manage
-  template:
-    metadata:
-      labels:
-        app: my-fastapi-app  # Labels applied to the pods created by this Deployment
-    spec:
-      containers:
-      - name: my-fastapi-app  # Name of the container within the pod
-        image: my-fastapi-app:latest  # The Docker image to use for this container
-        imagePullPolicy: Never  # Ensures Kubernetes uses the locally built image without pulling from a registry
-        ports:
-        - containerPort: 8000  # The port that the container exposes internally
-        resources:
-          limits:
-            memory: "128Mi"  # Maximum memory the container can use
-            cpu: "200m"  # Maximum CPU the container can use (200 milliCPU)
-
-
-```
-
-```yaml
-# service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-fastapi-app-service
-spec:
-  type: NodePort  # Exposes the service on a specific port on each node
-  selector:
-    app: my-fastapi-app
-  ports:
-  - protocol: TCP
-    port: 80  # The port that will be exposed outside the cluster
-    targetPort: 8000  # The port your FastAPI app listens to inside the container
-    nodePort: 30007  # You can specify a port or let Kubernetes assign one (30000-32767)
-
-
-```
-
-```bash
-$ kubectl apply -f kubernetes/base/
-```
+   <br/> a) producer-deployment.yaml
+   <br/> b) producer-service.yaml
+   <br/> c) consumer-deployment.yaml
 
 7. Deploy to Minikube
 
 ```bash
-kubectl apply -f deployment.yaml
+$ kubectl apply -f kubernetes/base/
+
+$ kubectl apply -f kubernetes/local/
 ```
 
-```bash
-kubectl apply -f service.yaml
-```
-
-8. Verify the Pod is Running
-
-```bash
-kubectl get pods
-```
-
-9. Verify the Pod and service is Running
+8. Verify the Pod and service is Running
 
 ```bash
 kubectl get pods
@@ -125,17 +145,19 @@ kubectl get pods
 ```bash
 kubectl get services
 ```
-10. Start the application
+
+9. Start the application
     <br/> a) In console
     ```bash
-    minikube service my-fastapi-app-service
+    minikube service producer-service
     ```
     <br/> b) In detach mode inside console
 
     ```bash
-    minikube service my-fastapi-app-service --url &
+    minikube service producer-service --url &
     ```
-### 3. Debug Deployment
+
+### 5. Debug Deployment
 
 Here's the handful of command to debug the deployment on minikube
 
@@ -159,7 +181,7 @@ $ kubectl apply -f deployment.yaml
 $ kubectl apply -f service.yaml
 ```
 
-### 4. How to configure Mulesoft FlexGateway on Mac M1
+### 6. How to configure Mulesoft FlexGateway on Mac M1
 
 A. Cleanup Kubernetes Resources
 
@@ -224,48 +246,4 @@ kubectl get svc ingress -o yaml -n gateway
 
 ```bash
  minikube service ingress -n gateway
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-```bash
-
-```
-
-
-```bash
-1228  helm -n gateway uninstall ingress\n
- 1229  kubectl delete namespace gateway\n
- 1230  docker rmi mulesoft/flex-gateway:1.8.0-amd64\ndocker rmi mulesoft/flex-gateway:1.8.0\ndocker rmi mulesoft/flex-gateway:latest\n
- 1231  docker rmi -f mulesoft/flex-gateway:1.8.0-amd64\ndocker rmi -f mulesoft/flex-gateway:1.8.0\ndocker rmi -f mulesoft/flex-gateway:latest\n
- 1232  minikube stop
- 1233  minikube start
- 1234  docker images
- 1235  eval $(minikube -p mq-minikube docker-env)\n
- 1236  docker images
- 1237  docker pull --platform linux/amd64 mulesoft/flex-gateway:1.8.0
- 1238  docker tag mulesoft/flex-gateway:1.8.0 mulesoft/flex-gateway:1.8.0-amd64
- 1239  docker images
- 1240  helm repo add flex-gateway https://flex-packages.anypoint.mulesoft.com/helm
- 1241  helm -n gateway upgrade -i --create-namespace --wait ingress flex-gateway/flex-gateway \\n  --set-file registration.content=registration.yaml \\n  --set gateway.mode=connected \\n  --set image.repository=mulesoft/flex-gateway \\n  --set image.tag=1.8.0-amd64\n
-(.venv) (base) mq10006848@ITS-FVFL21EX1WG7 gateway-kube-mini-test2 % 
-
 ```
