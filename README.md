@@ -5,7 +5,7 @@
 4. Setup mulesoft Flexgateway on Mac (M1 ARM)
 
 
-sequenceDiagram
+```sequenceDiagram
     actor User
     participant FastAPI
     participant Kafka
@@ -18,6 +18,7 @@ sequenceDiagram
     PythonConsumer->>Salesforce: Update or create contacts
     Salesforce-->>PythonConsumer: Confirm action
     FastAPI-->>User: Send response
+```
 
 # Deployment Lifecycle
 
