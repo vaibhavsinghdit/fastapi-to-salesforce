@@ -12,6 +12,23 @@
 
 ### 1. Message Flow
 ```mermaid
+sequenceDiagram
+    actor User
+    participant FastAPI
+    participant Kafka
+    participant PythonConsumer
+    participant Salesforce
+
+    User->>FastAPI: Send request
+    FastAPI->>Kafka: Send message
+    Kafka->>PythonConsumer: Consume message
+    PythonConsumer->>Salesforce: Update or create contacts
+    Salesforce-->>PythonConsumer: Confirm action
+    FastAPI-->>User: Send response
+```
+
+### 2. Microservices Architecture: Salesforce Contact creation
+```mermaid
 graph LR
     User((User))
     subgraph Minikube_Kubernetes_Cluster["Minikube/Kubernetes Cluster"]
@@ -41,25 +58,6 @@ graph LR
     style FlexGateway fill:#f7e8a9,stroke:#333,stroke-width:1px
     style FastAPI fill:#d4edda,stroke:#333,stroke-width:1px
     style PythonConsumer fill:#d4edda,stroke:#333,stroke-width:1px
-
-
-```
-
-### 2. Microservices Architecture: Salesforce Contact creation
-```mermaid
-sequenceDiagram
-    actor User
-    participant FastAPI
-    participant Kafka
-    participant PythonConsumer
-    participant Salesforce
-
-    User->>FastAPI: Send request
-    FastAPI->>Kafka: Send message
-    Kafka->>PythonConsumer: Consume message
-    PythonConsumer->>Salesforce: Update or create contacts
-    Salesforce-->>PythonConsumer: Confirm action
-    FastAPI-->>User: Send response
 ```
 
 ----
