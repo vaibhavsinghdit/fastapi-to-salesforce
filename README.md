@@ -4,6 +4,21 @@
 3. Debug deployment
 4. Setup mulesoft Flexgateway on Mac (M1 ARM)
 
+
+sequenceDiagram
+    actor User
+    participant FastAPI
+    participant Kafka
+    participant PythonConsumer
+    participant Salesforce
+
+    User->>FastAPI: Send request
+    FastAPI->>Kafka: Send message
+    Kafka->>PythonConsumer: Consume message
+    PythonConsumer->>Salesforce: Update or create contacts
+    Salesforce-->>PythonConsumer: Confirm action
+    FastAPI-->>User: Send response
+
 # Deployment Lifecycle
 
 Step 1: Build the image locally
