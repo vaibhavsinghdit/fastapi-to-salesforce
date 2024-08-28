@@ -1,4 +1,4 @@
-# Salesforce Contact lifeccycle
+# Salesforce Contact lifecycle
 
 ## Table of content
 1. Message Flow
